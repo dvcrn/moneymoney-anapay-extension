@@ -7,6 +7,8 @@ if WebBanking then
     }
 end
 
+local helpers = require("helpers")
+
 local M = {}
 
 function M.is_moneymoney()
@@ -73,11 +75,11 @@ end
 
 function M.make_request(url, method, headers, body)
     -- Print all arguments
-    print("URL:", url)
-    print("Method:", method)
-    print("Headers:")
+    helpers.print("requesting", method, url)
+
+    helpers.debug_print("Headers:")
     for k, v in pairs(headers) do
-        print("  " .. k .. ": " .. v)
+        helpers.debug_print("  " .. k .. ": " .. v)
     end
 
     if Connection then
@@ -98,13 +100,13 @@ function M.make_request(url, method, headers, body)
         end
 
         -- Print all response values
-        print("Response Headers:")
+        helpers.debug_print("Response Headers:")
         for k, v in pairs(responseHeaders) do
-            print("  " .. k .. ": " .. v)
+            helpers.debug_print("  " .. k .. ": " .. v)
         end
-        print("Response Charset:", charset)
-        print("Response MIME Type:", mimeType)
-        print("Response Filename:", filename)
+        helpers.debug_print("Response Charset:", charset)
+        helpers.debug_print("Response MIME Type:", mimeType)
+        helpers.debug_print("Response Filename:", filename)
 
 
         -- Extract status code from response headers

@@ -1,5 +1,27 @@
 local M = {}
 
+M.debug = false
+
+function M.print(message, ...)
+    local formatted_message = "[anapay] " .. tostring(message)
+    print(formatted_message, ...)
+end
+
+function M.debug_print(message, ...)
+    if M.debug then
+        M.print(message, ...)
+    end
+end
+
+function M.print_env()
+    -- Debug: Print Lua version
+    M.debug_print("Lua version:", _VERSION)
+
+    -- Debug: Print updated package path
+    M.debug_print("package.path:", package.path)
+    M.debug_print("package.cpath:", package.cpath)
+end
+
 function M.datetime_to_timestamp(datetime)
     if type(datetime) == "number" then
         datetime = tostring(datetime)

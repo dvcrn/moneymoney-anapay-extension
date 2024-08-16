@@ -1,147 +1,58 @@
--- Debug: Print Lua version
-print("Lua version:", _VERSION)
+--[[
+    ANA Pay Wallet Integration for MoneyMoney
 
-local luarocks_prefix = "./.luarocks"
+    This script provides integration for ANA Pay Wallet into MoneyMoney,
+    allowing users to fetch their account balance and transactions.
+
+    Author: David Mohl
+    Version: 1.0
+    License: MIT (commercial excluded)
+]]
+
+-- Set the following to true to have a bit more output
+local DEBUG = false
+
+-- luarocks setup
+local luarocks_prefix = "./lua_modules"
 package.path = luarocks_prefix .. "/share/lua/5.4/?.lua;" .. luarocks_prefix ..
     "/share/lua/5.1/?/init.lua;" .. package.path
 package.cpath = luarocks_prefix .. "/lib/lua/5.4/?.so;" .. package.cpath
 
--- Debug: Print updated package path
-print("package.path:", package.path)
-print("package.cpath:", package.cpath)
+-- Script start
+local helpers = require("helpers")
+helpers.debug = DEBUG
+
+helpers.print_env()
 
 local mm = require("mm")
-local helpers = require("helpers")
+local anapay = require("anapay")
 
-local function login(anaWalletId, deviceId)
-    local url = "https://teikei1.api.mkpst.com/ana/accounts/login"
-    local headers = {
-        ["host"] = "teikei1.api.mkpst.com",
-        ["accept"] = "application/json",
-        ["user-agent"] = "ANAMileage/4.31.0 (jp.co.ana.anamile; build:4; iOS 18.1.0) Alamofire/5.9.1",
-        ["accept-language"] = "ja-JP;q=1.0, en-AU;q=0.9, de-JP;q=0.8",
-        ["content-type"] = "application/json"
-    }
-    local body = {
-        ["anaWalletId"] = anaWalletId,
-        ["deviceId"] = deviceId
-    }
-
-    local status, responseHeaders, content = mm.make_request(url, "POST", headers, mm.stringify_json(body))
-
-    local response = mm.parse_json(content)
-    local result = {
-        emailAuthenticated = response.emailAuthenticated,
-        loginAuthId = response.loginAuthId,
-        accessToken = response.accessToken,
-        tokenType = response.tokenType,
-        expiresIn = response.expiresIn,
-        refreshToken = response.refreshToken,
-        scope = response.scope
-    }
-
-    return result
-end
-
-local function getAccounts(accessToken)
-    local url = "https://teikei1.api.mkpst.com/accounts?balanceReferenceFlag=1&nfcStatusReferenceFlag=1"
-    local headers = {
-        ["host"] = "teikei1.api.mkpst.com",
-        ["accept"] = "application/json",
-        ["user-agent"] = "ANAMileage/4.31.0 (jp.co.ana.anamile; build:4; iOS 18.1.0) Alamofire/5.9.1",
-        ["authorization"] = "Bearer " .. accessToken,
-        ["accept-language"] = "ja-JP;q=1.0, en-AU;q=0.9, de-JP;q=0.8",
-        ["content-type"] = "application/json"
-    }
-
-    local status, responseHeaders, content = mm.make_request(url, "GET", headers)
-
-    local response = mm.parse_json(content)
-    local result = {
-        allianceId = response.allianceId,
-        referenceNumber = response.referenceNumber,
-        accountStatus = response.accountStatus,
-        balance = response.balance,
-        mainPaymentSourceId = response.mainPaymentSourceId,
-        creditCardInfo = response.creditCardInfo,
-        bankPayInfo = response.bankPayInfo,
-        pointInfo = response.pointInfo,
-        nfcRegisterStatus = response.nfcRegisterStatus,
-        serviceRegisterStatus = response.serviceRegisterStatus,
-        bankpayFirstAuthFlag = response.bankpayFirstAuthFlag
-    }
-
-    return result
-end
-
-
-local function getTransactions(accessToken, pageNumber, pageSize)
-    pageNumber = pageNumber or 1
-    pageSize = pageSize or 999
-
-    local url = "https://teikei1.api.mkpst.com/salesDetails?pageSize=" ..
-        pageSize .. "&pageNumber=" .. pageNumber .. "&historyType=&settlementType="
-    local headers = {
-        ["host"] = "teikei1.api.mkpst.com",
-        ["accept"] = "application/json",
-        ["user-agent"] = "ANAMileage/4.31.0 (jp.co.ana.anamile; build:4; iOS 18.1.0) Alamofire/5.9.1",
-        ["authorization"] = "Bearer " .. accessToken,
-        ["accept-language"] = "ja-JP;q=1.0, en-AU;q=0.9, de-JP;q=0.8",
-        ["content-type"] = "application/json"
-    }
-
-    local status, responseHeaders, content = mm.make_request(url, "GET", headers)
-
-    local response = mm.parse_json(content)
-    local result = {}
-    for _, transaction in ipairs(response.history) do
-        table.insert(result, {
-            saleDatetime = transaction.saleDatetime,
-            settlementType = transaction.settlementType,
-            dealType = transaction.dealType,
-            delKbn = transaction.delKbn,
-            descriptionType = transaction.descriptionType,
-            shopName = transaction.shopName,
-            amount = transaction.amount,
-            walletSettlementNo = transaction.walletSettlementNo,
-            walletSettlementSubNo = transaction.walletSettlementSubNo,
-            pointConversionAmount = transaction.pointConversionAmount
-        })
-    end
-
-    return result
-end
-
-
--- Ininal API request
 
 function SupportsBank(protocol, bankCode)
-    print("SupportsBank " .. protocol .. " " .. bankCode)
+    helpers.debug_print("SupportsBank " .. protocol .. " " .. bankCode)
     return protocol == ProtocolWebBanking and bankCode == "ANA Pay Wallet"
 end
 
 function InitializeSession(protocol, bankCode, username, reserved, password)
     -- Login.
-    print("InitializeSession args:")
-    print("protocol:", protocol)
-    print("bankCode:", bankCode)
-    print("username:", username)
-    print("reserved:", reserved)
-    print("password:", password)
+    helpers.debug_print("InitializeSession args:")
+    helpers.debug_print("protocol:", protocol)
+    helpers.debug_print("bankCode:", bankCode)
+    helpers.debug_print("username:", username)
+    helpers.debug_print("reserved:", reserved)
+    helpers.debug_print("password:", password)
 
-    local result = login(username, password)
-    print(mm.stringify_json(result, { indent = true }))
+    local result = anapay.login(username, password)
+    helpers.debug_print(mm.stringify_json(result, { indent = true }))
 
     mm.store_value("accessToken", result.accessToken)
 end
 
 function ListAccounts(knownAccounts)
-    print("list account")
-    print("knownAccounts:") -- Return array of accounts.
-    print(mm.stringify_json(knownAccounts))
-
     local accessToken = mm.get_value("accessToken")
-    local accounts = getAccounts(accessToken)
+    local accounts = anapay.getAccounts(accessToken)
+
+    helpers.print("discovered account: ", accounts.referenceNumber, accounts.balance)
 
     local account = {
         name = "ANA Pay",
@@ -156,16 +67,14 @@ function ListAccounts(knownAccounts)
 end
 
 function RefreshAccount(account, since)
-    print("refresh account")
-    print(mm.stringify_json(account))
-    print("since " .. since) -- format: 8/11/2024
+    helpers.debug_print("refresh account")
+    helpers.debug_print(mm.stringify_json(account))
+    helpers.debug_print("since " .. since) -- format: 8/11/2024
 
     local accessToken = mm.get_value("accessToken")
     local account = mm.get_value("account")
 
-    --if account == nil then
-    --    print("No account")
-    local accounts = getAccounts(accessToken)
+    local accounts = anapay.getAccounts(accessToken)
     account = {
         name = "ANA Pay",
         accountNumber = accounts.referenceNumber,
@@ -173,17 +82,18 @@ function RefreshAccount(account, since)
         balance = accounts.balance,
         type = AccountTypeCreditCard
     }
-    --end
 
-    print("Account")
-    print(mm.stringify_json(account, { indent = true }))
+    helpers.print("refreshing account", accounts.referenceNumber, "balance=", accounts.balance)
+
+    helpers.debug_print("Account")
+    helpers.debug_print(mm.stringify_json(account, { indent = true }))
 
 
     local transactions = {}
     local page = 1
     local hasMore = true
     while hasMore do
-        local result = getTransactions(accessToken, page)
+        local result = anapay.getTransactions(accessToken, page)
         if #result == 0 then
             hasMore = false
         else
@@ -197,10 +107,8 @@ function RefreshAccount(account, since)
             page = page + 1
         end
     end
-    print("Balance: " .. account.balance)
-    print("Transactions:")
-    print("Number of transactions: " .. #transactions)
 
+    helpers.print("received # transactions: " .. #transactions)
 
     local parsedTransactions = {}
     for _, transaction in ipairs(transactions) do
@@ -259,7 +167,7 @@ function RefreshAccount(account, since)
 end
 
 function EndSession()
-    print("EndSession")
+    helpers.debug_print("EndSession")
 end
 
 if not mm.is_moneymoney() then
