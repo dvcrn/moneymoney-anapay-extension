@@ -1,12 +1,3 @@
-if WebBanking then
-    WebBanking {
-        version = 1.0,
-        url = "https://ana.co.jp",
-        description = "ANA Pay Wallet",
-        services = { "ANA Pay Wallet" },
-    }
-end
-
 -- Debug: Print Lua version
 print("Lua version:", _VERSION)
 
@@ -19,148 +10,8 @@ package.cpath = luarocks_prefix .. "/lib/lua/5.4/?.so;" .. package.cpath
 print("package.path:", package.path)
 print("package.cpath:", package.cpath)
 
-local function is_moneymoney()
-    if WebBanking then
-        return true
-    end
-
-    return false
-end
-
-local function datetime_to_timestamp(datetime)
-    if type(datetime) == "number" then
-        datetime = tostring(datetime)
-    end
-
-    local pattern = "(%d%d%d%d)(%d%d)(%d%d)(%d%d)(%d%d)(%d%d)"
-    local year, month, day, hour, minute, second = datetime:match(pattern)
-    -- Convert to numbers
-    year, month, day, hour, minute, second = tonumber(year), tonumber(month), tonumber(day), tonumber(hour),
-        tonumber(minute), tonumber(second)
-
-    -- Convert date and time to timestamp
-    local time = os.time { year = year, month = month, day = day, hour = hour, min = minute, sec = second }
-    return time
-end
-
-local function parse_json(json_string)
-    if JSON then
-        -- Use MoneyMoney's JSON object if available
-        return JSON(json_string):dictionary()
-    else
-        -- Fallback to dkjson if JSON is not available
-        local dkjson = require("dkjson")
-        return dkjson.decode(json_string)
-    end
-end
-
-local function stringify_json(lua_table, args)
-    if args == nil then args = {} end
-    if JSON then
-        -- Use MoneyMoney's JSON object if available
-        return JSON():set(lua_table):json()
-    else
-        -- Fallback to dkjson if JSON is not available
-        local dkjson = require("dkjson")
-        return dkjson.encode(lua_table, args)
-    end
-end
--- Create a storage object that uses LocalStorage if available, otherwise a regular table
-local Storage = {}
-
-if LocalStorage then
-    -- We're in MoneyMoney context, use LocalStorage
-    Storage = LocalStorage
-else
-    -- We're not in MoneyMoney, create a table-based storage
-    local storageTable = {}
-    Storage = {
-        -- Getter
-        __index = function(_, key)
-            return storageTable[key]
-        end,
-        -- Setter
-        __newindex = function(_, key, value)
-            storageTable[key] = value
-        end
-    }
-    setmetatable(Storage, Storage)
-end
-
--- Example usage
-local function store_value(key, value)
-    Storage[key] = value
-end
-
-local function get_value(key)
-    return Storage[key]
-end
-
-local function make_request(url, method, headers, body)
-    -- Print all arguments
-    print("URL:", url)
-    print("Method:", method)
-    print("Headers:")
-    for k, v in pairs(headers) do
-        print("  " .. k .. ": " .. v)
-    end
-
-    if Connection then
-        -- Use MoneyMoney's Connection object if available
-        local connection = Connection()
-        local request_method = method:upper()
-
-        -- Make the request
-        local content, charset, mimeType, filename, responseHeaders
-        if request_method == "GET" then
-            content, charset, mimeType, filename, responseHeaders = connection:request(method, url, nil,
-                headers["Content-Type"], headers)
-        elseif request_method == "POST" then
-            content, charset, mimeType, filename, responseHeaders = connection:request(method, url, body,
-                headers["Content-Type"], headers)
-        else
-            error("Unsupported HTTP method: " .. method)
-        end
-
-        -- Print all response values
-        print("Response Status:", status)
-        print("Response Headers:")
-        for k, v in pairs(responseHeaders) do
-            print("  " .. k .. ": " .. v)
-        end
-        print("Response Charset:", charset)
-        print("Response MIME Type:", mimeType)
-        print("Response Filename:", filename)
-
-
-        -- Extract status code from response headers
-        local status = responseHeaders["Status"] or "200"
-
-        return status, responseHeaders, content
-    else
-        -- Fallback to http_request if Connection is not available
-        local http_request = require("http.request")
-
-        local req = http_request.new_from_uri(url)
-        req.headers:upsert(":method", method)
-
-        if headers then
-            for k, v in pairs(headers) do
-                req.headers:upsert(k, v)
-            end
-        end
-
-        if body then
-            req:set_body(body)
-        end
-
-        local headers, stream = req:go()
-        local body = assert(stream:get_body_as_string())
-        local status = headers:get(":status")
-
-        return status, headers, body
-    end
-end
+local mm = require("mm")
+local helpers = require("helpers")
 
 local function login(anaWalletId, deviceId)
     local url = "https://teikei1.api.mkpst.com/ana/accounts/login"
@@ -176,9 +27,9 @@ local function login(anaWalletId, deviceId)
         ["deviceId"] = deviceId
     }
 
-    local status, responseHeaders, content = make_request(url, "POST", headers, stringify_json(body))
+    local status, responseHeaders, content = mm.make_request(url, "POST", headers, mm.stringify_json(body))
 
-    local response = parse_json(content)
+    local response = mm.parse_json(content)
     local result = {
         emailAuthenticated = response.emailAuthenticated,
         loginAuthId = response.loginAuthId,
@@ -203,9 +54,9 @@ local function getAccounts(accessToken)
         ["content-type"] = "application/json"
     }
 
-    local status, responseHeaders, content = make_request(url, "GET", headers)
+    local status, responseHeaders, content = mm.make_request(url, "GET", headers)
 
-    local response = parse_json(content)
+    local response = mm.parse_json(content)
     local result = {
         allianceId = response.allianceId,
         referenceNumber = response.referenceNumber,
@@ -239,9 +90,9 @@ local function getTransactions(accessToken, pageNumber, pageSize)
         ["content-type"] = "application/json"
     }
 
-    local status, responseHeaders, content = make_request(url, "GET", headers)
+    local status, responseHeaders, content = mm.make_request(url, "GET", headers)
 
-    local response = parse_json(content)
+    local response = mm.parse_json(content)
     local result = {}
     for _, transaction in ipairs(response.history) do
         table.insert(result, {
@@ -278,18 +129,18 @@ function InitializeSession(protocol, bankCode, username, reserved, password)
     print("reserved:", reserved)
     print("password:", password)
 
-    result = login(username, password)
-    print(stringify_json(result, { indent = true }))
+    local result = login(username, password)
+    print(mm.stringify_json(result, { indent = true }))
 
-    store_value("accessToken", result.accessToken)
+    mm.store_value("accessToken", result.accessToken)
 end
 
 function ListAccounts(knownAccounts)
     print("list account")
     print("knownAccounts:") -- Return array of accounts.
-    print(stringify_json(knownAccounts))
+    print(mm.stringify_json(knownAccounts))
 
-    local accessToken = get_value("accessToken")
+    local accessToken = mm.get_value("accessToken")
     local accounts = getAccounts(accessToken)
 
     local account = {
@@ -300,17 +151,17 @@ function ListAccounts(knownAccounts)
         type = AccountTypeCreditCard
     }
 
-    store_value("account", account)
+    mm.store_value("account", account)
     return { account }
 end
 
 function RefreshAccount(account, since)
     print("refresh account")
-    print(stringify_json(account))
+    print(mm.stringify_json(account))
     print("since " .. since) -- format: 8/11/2024
 
-    local accessToken = get_value("accessToken")
-    local account = get_value("account")
+    local accessToken = mm.get_value("accessToken")
+    local account = mm.get_value("account")
 
     --if account == nil then
     --    print("No account")
@@ -325,7 +176,7 @@ function RefreshAccount(account, since)
     --end
 
     print("Account")
-    print(stringify_json(account, { indent = true }))
+    print(mm.stringify_json(account, { indent = true }))
 
 
     local transactions = {}
@@ -337,7 +188,7 @@ function RefreshAccount(account, since)
             hasMore = false
         else
             for _, transaction in ipairs(result) do
-                if datetime_to_timestamp(transaction.saleDatetime) < since then
+                if helpers.datetime_to_timestamp(transaction.saleDatetime) < since then
                     hasMore = false
                     break
                 end
@@ -349,7 +200,6 @@ function RefreshAccount(account, since)
     print("Balance: " .. account.balance)
     print("Transactions:")
     print("Number of transactions: " .. #transactions)
-
 
 
     local parsedTransactions = {}
@@ -392,8 +242,8 @@ function RefreshAccount(account, since)
             name = name or "",
             amount = amount,
             currency = account.currency,
-            bookingDate = datetime_to_timestamp(transaction.saleDatetime),
-            valueDate = datetime_to_timestamp(transaction.saleDatetime),
+            bookingDate = helpers.datetime_to_timestamp(transaction.saleDatetime),
+            valueDate = helpers.datetime_to_timestamp(transaction.saleDatetime),
 
             bookingText = bookingText or "", -- transaction type
 
@@ -412,6 +262,6 @@ function EndSession()
     print("EndSession")
 end
 
-if not is_moneymoney() then
-    InitializeSession()
+if not mm.is_moneymoney() then
+    InitializeSession(nil, nil, "foo", nil, "bar")
 end

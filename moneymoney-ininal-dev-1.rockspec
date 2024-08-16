@@ -10,6 +10,7 @@ description = {
 dependencies = {
    "dkjson",
    "http",
+   "amalg",
 }
 build = {
    type = "builtin",
