@@ -9,7 +9,7 @@ Caveat: I haven't got around to properly implement auth yet, so you need a rever
 ## Usage 
 
 1. In Money Money, open your extension folder (Help -> Show Database in Finder -> Extensions)
-2. Download the latest release from [here](https://github.com/moneymoney-anapay-extension/releases)
+2. Download the latest release from [here](https://github.com/dvcrn/moneymoney-anapay-extension/releases)
 3. Put the .lua file into your Extensions folder
 
 ## Authentication
