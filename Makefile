@@ -1,9 +1,4 @@
-dist/anapay.lua: main.lua mm.lua helpers.lua anapay.lua
+dist/out.lua: src/Main.hx src/Anapay.hx src/Storage.hx src/JsonHelper.hx src/RequestHelper.hx src/Sanitizer.hx src/Kanaconv.hx
 	mkdir -p dist
-	./lua_modules/bin/amalg.lua -o dist/anapay.lua -s main.lua mm helpers anapay
-
-.PHONY: deps
-deps: 
-	luarocks install dkjson
-	luarocks install http
-	luarocks install amalg
+	cd src/ && haxe --lua ../dist/out.lua --main Main -D lua-vanilla -D lua-return
+	sed -i '' 's/    error(\"Failed to load bit or bit32\")/-- &/' dist/out.lua

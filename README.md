@@ -20,6 +20,12 @@ Look for the request to "teikei1.api.mkpst.com/ana/accounts/login" and copy `ana
 
 In Money Money, setup a new connection of type "ANA Pay Wallet", username is `anaWalletId` and password is `deviceId`
 
+## Building
+
+```
+Install Haxe, run `make`
+```
+
 ## License 
 
 MIT, with commercial use excluded
